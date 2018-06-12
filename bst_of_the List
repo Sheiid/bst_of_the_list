@@ -1,0 +1,269 @@
+/*
+ * client.c
+ *
+ *  Created on: Jun 11, 2018
+ *      Author: sheida
+ */
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#define NC 51
+
+typedef struct bank {
+
+	char bank[NC];
+	char branch[NC];
+	char abi[NC];
+	char cab[NC];
+	char iban[NC];
+	int deposit;
+	struct bank *next;
+
+} bank_t;
+
+typedef struct customer {
+
+	char name[NC];
+	char surname[NC];
+	bank_t *bank_list;
+	struct customer *left;
+	struct customer *right;
+
+} c_t;
+
+//prototypes
+void readFile1(char *, c_t **);
+void readFile2(FILE *, char *, char *, char *, char *, c_t **);
+void tree_insert(c_t **, c_t *, bank_t *);
+//just one pointer for the root
+void tree_visit(c_t *);
+void tree_dispose(c_t *);
+void find_and_print(c_t *, char *, char *);
+
+int main(int argc, char *argv[]) {
+
+	c_t *root_tree;
+	char name[NC], surname[NC];
+
+	if (argc != 2) {
+		printf("Error on number of parameters !\n");
+		exit(EXIT_FAILURE);
+	}
+	readFile1(argv[1], &root_tree);
+	tree_visit(root_tree);
+//now find the path in your tree
+	//by asking the name and the surname of your customer
+	do {
+		printf("\n");
+		printf("Name:");
+		scanf("%s", name);
+		printf("surname:");
+		scanf("%s", surname);
+		if (strcmp(name, "exit") == 0 || strcmp(surname, "exit") == 0) {
+			printf("terminate the program ! bye bye !\n");
+			return 0;
+		}
+		find_and_print(root_tree, name, surname);
+
+	} while (strcmp(name, "exit") != 0 || strcmp(surname, "exit") != 0);
+
+	tree_dispose(root_tree);
+	return 0;
+}
+void readFile1(char *fN, c_t **root) {
+	//c_t *tmp;
+	FILE *fp1;
+	FILE *fp2;
+	char bank[NC], branch[NC], abi[NC], cab[NC], fileName[NC];
+	fp1 = fopen(fN, "r");
+	if (fp1 == NULL) {
+		printf("Error on file open\n");
+		exit(EXIT_FAILURE);
+	}
+
+	//because we don't know the size of my file
+
+	while (fscanf(fp1, "%s %s %s %s %s", bank, branch, abi, cab, fileName)
+			!= EOF) {
+		//alan file dovomet ro baz kon
+		fp2 = fopen(fileName, "r");
+		if (fp2 == NULL) {
+			printf("Error !\n");
+			exit(EXIT_FAILURE);
+		}
+		//sending all the variables you read in the file and allocate them to the other file
+		readFile2(fp2, bank, branch, abi, cab, root);
+		fclose(fp2);
+	}
+	fclose(fp1);
+}
+void readFile2(FILE *fp, char *bankName, char *branch, char *abi, char *cab,
+		c_t **root) {
+
+	c_t *c;
+	bank_t *bank;
+	char name[NC], surname[NC], iban[NC];
+	int deposit;
+
+	while (fscanf(fp, "%s %s %s %d", name, surname, iban, &deposit) != EOF) {
+		//allocate the customers and bank now
+		//printf("File can open !\n");
+		c = (c_t *) calloc(1, sizeof(c_t));
+		bank = (bank_t *) calloc(1, sizeof(bank_t));
+		if (c == NULL || bank == NULL) {
+			printf("Allocation Error!\n");
+			exit(EXIT_FAILURE);
+		}
+		strcpy(c->name, name);
+		strcpy(c->surname, surname);
+		strcpy(bank->abi, abi);
+		strcpy(bank->iban,iban);
+		strcpy(bank->bank, bankName);
+		strcpy(bank->branch, branch);
+		strcpy(bank->cab, cab);
+		strcpy(c->name, name);
+		bank->deposit = deposit;
+		tree_insert(root, c, bank);
+	}
+
+	return;
+}
+void tree_insert(c_t **root, c_t *c, bank_t *bank) {
+
+	c_t *customer;
+	//insert as a BST considering the order for name and surname
+	customer = *root;
+
+	//always consider the special condition
+	if (customer == NULL) {
+		//first insertion
+		c->bank_list = bank;
+		*root = c;
+
+	} else {
+
+		//comparing the string
+		if (strcmp(c->name, customer->name) < 0) {
+			tree_insert(&customer->left, c, bank);
+		} else {
+
+			if (strcmp(c->name, customer->name) == 0
+					&& (strcmp(c->surname, customer->surname) < 0)) {
+				tree_insert(&customer->left, c, bank);
+			} else {
+
+				if (strcmp(c->name, customer->name) > 0) {
+					tree_insert(&customer->right, c, bank);
+				} else {
+
+					if (strcmp(c->name, customer->name) == 0
+							&& (strcmp(c->surname, customer->surname) > 0)) {
+						tree_insert(&customer->right, c, bank);
+					} else {
+
+						if (strcmp(c->name, customer->name) == 0
+								&& (strcmp(c->surname, customer->surname) == 0)) {
+							//bank listeshun ham bayad bah ham mosavi bashe
+							bank->next = customer->bank_list;
+							customer->bank_list = bank;
+							free(c);
+						}
+
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+	return;
+}
+//visisting the BST has 3 ways: preOrder inOrder and postOrder
+void tree_visit(c_t * root) {
+	//pre order = left root right
+
+	c_t *tmp;
+	bank_t *bank;
+	tmp = root;
+
+	if (tmp != NULL) {
+		//left
+		tree_visit(tmp->left);
+		//root
+		printf("%s %s\n", tmp->name, tmp->surname);
+		bank = tmp->bank_list;
+		while (bank != NULL) {
+			printf("%s %s %s %s %s %d\n", bank->abi, bank->bank, bank->branch,
+					bank->cab, bank->iban, bank->deposit);
+			bank = bank->next;
+		}
+		//right
+		tree_visit(tmp->right);
+	}
+
+}
+void find_and_print(c_t *root, char *name, char *surname) {
+
+	c_t *tmp;
+	bank_t *bank;
+	tmp = root;
+	if (tmp == NULL) {
+		printf("NO DATA!");
+	} else {
+		if (strcmp(tmp->name, name) != 0
+				|| strcmp(tmp->surname, surname) != 0) {
+			if (strcmp(tmp->name, name) > 0) {
+				find_and_print(tmp->left, name, surname);
+			} else {
+				if (strcmp(tmp->name, name) == 0
+						&& strcmp(tmp->surname, surname) > 0) {
+					find_and_print(tmp->left, name, surname);
+				} else {
+					if (strcmp(tmp->name, name) < 0) {
+						find_and_print(tmp->right, name, surname);
+
+					} else {
+						if (strcmp(tmp->name, name) == 0
+								&& strcmp(tmp->surname, surname) < 0) {
+							find_and_print(tmp->right, name, surname);
+						}
+					}
+				}
+			}
+		} else {
+
+			bank = tmp->bank_list;
+			while (bank != NULL) {
+				printf("abi=%s\t bank=%s \t branch=%s \t cab=%s \t iban=%s \t deposit=%d\n", bank->abi, bank->bank, bank->branch,
+						bank->cab, bank->iban, bank->deposit);
+				bank = bank->next;
+			}
+		}
+
+	}
+	//!
+	//now it's turn to the bank information
+
+}
+void tree_dispose(c_t *root) {
+	//deallocating the tree
+
+	bank_t *p1, *p2;
+	if (root == NULL) {
+		return;
+	}
+	tree_visit(root->left);
+	tree_visit(root->right);
+	p1 = root->bank_list;
+	while (p1 != NULL) {
+		p2 = p1->next;
+		free(p1);
+		p1 = p2;
+	}
+	free(root);
+	return;
+
+}
